@@ -35,13 +35,10 @@ contract RedCatTemplate is ERC721A, Ownable {
     uint public maxTotal;
     uint public price;
     uint public mintTime;
-    
-    string baseTokenURI;
-
     bool public mintOpen;
-
     address public withdrawAddress;
-
+    string baseTokenURI;
+    
     constructor(string memory name, string memory symbol, uint _maxMint, uint _porfit, uint _maxTotal, uint _price, uint _mintTime, string memory _baseTokenURI) ERC721A(name, symbol)  {
         maxMint = _maxMint;
         porfit = _porfit;
@@ -73,6 +70,10 @@ contract RedCatTemplate is ERC721A, Ownable {
 
     function setMintTime(uint256 _mintTime) public onlyOwner {
         mintTime = _mintTime;
+    }
+
+    function setMintPrice(uint256 _price) public onlyOwner {
+        price = _price;
     }
 
     function setPorfit(uint256 _porfit) public onlySteven {
