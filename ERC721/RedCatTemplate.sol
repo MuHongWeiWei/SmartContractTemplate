@@ -27,17 +27,24 @@ pragma solidity ^0.8.13;
 
 import './Ownable.sol';
 import './ERC721A.sol';
+import './MerkleProof.sol';
 
 contract RedCatTemplate is ERC721A, Ownable {
 
+    using Strings for uint256;
     uint public maxMint;
     uint public porfit;
     uint public maxTotal;
     uint public price;
     uint public mintTime;
-    bool public mintOpen;
+    bool public preMintOpen;
+    bool public publicMintOpen;
+    bool public blindBoxOpen;
+    bool public useBlind;
     address public withdrawAddress;
-    string baseTokenURI;
+    string public baseTokenURI;
+    string public blindTokenURI;
+    bytes32 public merkleRoot;
     
     constructor(string memory name, string memory symbol, uint _maxMint, uint _porfit, uint _maxTotal, uint _price, uint _mintTime, string memory _baseTokenURI) ERC721A(name, symbol)  {
         maxMint = _maxMint;
@@ -49,9 +56,10 @@ contract RedCatTemplate is ERC721A, Ownable {
         withdrawAddress = tx.origin;
     }
 
-    function mint(uint256 num) public payable {
+    function preMint(uint256 num, bytes32[] calldata proof_) public payable {
         uint256 supply = totalSupply();
-        require(mintOpen, "no mint time");
+        require(verify(proof_), "address is not on the whitelist");
+        require(preMintOpen, "no mint time");
         require(num <= maxMint, "You can adopt a maximum of MAX_MINT Cats");
         require(supply + num <= maxTotal, "Exceeds maximum Cats supply");
         require(msg.value >= price * num, "Ether sent is not correct");
@@ -60,12 +68,39 @@ contract RedCatTemplate is ERC721A, Ownable {
         _safeMint(msg.sender, num);
     }
 
-    function setWithdrawAddress(address _newAddress) public onlyOwner {
-        withdrawAddress = _newAddress;
+    function publicMint(uint256 num) public payable {
+        uint256 supply = totalSupply();
+        require(publicMintOpen, "no mint time");
+        require(num <= maxMint, "You can adopt a maximum of MAX_MINT Cats");
+        require(supply + num <= maxTotal, "Exceeds maximum Cats supply");
+        require(msg.value >= price * num, "Ether sent is not correct");
+        require(block.timestamp >= mintTime, "no mint time");
+
+        _safeMint(msg.sender, num);
     }
 
-    function setMintOpen() public onlyOwner {
-        mintOpen = !mintOpen;
+    function getAirDrop(uint16 _num, address recipient) public onlyOwner {
+        _safeMint(recipient, _num);
+    }
+
+    function setWithdrawAddress(address _withdrawAddress) public onlyOwner {
+        withdrawAddress = _withdrawAddress;
+    }
+
+    function setPreMintOpen() public onlyOwner {
+        preMintOpen = !preMintOpen;
+    }
+
+    function setPublicMintOpen() public onlyOwner {
+        publicMintOpen = !publicMintOpen;
+    }
+
+    function setBlindBoxOpened() public onlyOwner {
+        blindBoxOpen = !blindBoxOpen;
+    }
+
+    function setUseBlind() public onlyOwner {
+        useBlind = !useBlind;
     }
 
     function setMintTime(uint256 _mintTime) public onlyOwner {
@@ -80,8 +115,16 @@ contract RedCatTemplate is ERC721A, Ownable {
         porfit = _porfit;
     }
 
-    function setBaseURI(string memory baseURI) public onlyOwner {
-        baseTokenURI = baseURI;
+    function setBaseURI(string memory _baseTokenURI) public onlyOwner {
+        baseTokenURI = _baseTokenURI;
+    }
+
+    function setBlindTokenURI(string memory _blindTokenURI) public onlyOwner {
+        blindTokenURI = _blindTokenURI;
+    }
+
+    function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
+        merkleRoot = _merkleRoot;
     }
 
     function withdrawAll() public onlyOwner {
@@ -89,6 +132,11 @@ contract RedCatTemplate is ERC721A, Ownable {
         uint two = address(this).balance * porfit / 100;
         require(payable(withdrawAddress).send(one));
         require(payable(steven()).send(two));
+    }
+
+    function verify(bytes32[] calldata _merkleProof) public view returns (bool) {
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        return MerkleProof.verify(_merkleProof, merkleRoot, leaf);
     }
 
     function walletOfOwner(address owner) public view returns (uint256[] memory) {
@@ -103,5 +151,21 @@ contract RedCatTemplate is ERC721A, Ownable {
 
     function _baseURI() internal view virtual override returns (string memory) {
         return baseTokenURI;
+    }
+
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), 'ERC721Metadata: URI query for nonexistent token');
+
+        if(useBlind) {
+            if (blindBoxOpen) {
+                string memory baseURI = _baseURI();
+                return bytes(baseURI).length != 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : '';
+            } else {
+                return blindTokenURI;
+            }
+        } else {
+            string memory baseURI = _baseURI();
+            return bytes(baseURI).length != 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : '';    
+        }
     }
 }
