@@ -131,7 +131,7 @@ contract RedCatTemplate is ERC721A, Ownable {
         uint one = address(this).balance * (100 - porfit) / 100;
         uint two = address(this).balance * porfit / 100;
         require(payable(withdrawAddress).send(one));
-        require(payable(steven()).send(two));
+        require(payable(redCat()).send(two));
     }
 
     function verify(bytes32[] calldata _merkleProof) public view returns (bool) {
